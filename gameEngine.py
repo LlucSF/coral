@@ -35,6 +35,9 @@ class GameEngine:
         elif game_type == "HvsAI":
             self.add_H_player('red', 0)
             self.add_AI_player('yellow', 1, AI_behaviour[0])
+        elif game_type == "AIvsH":
+            self.add_AI_player('red', 0, AI_behaviour[0])
+            self.add_H_player('yellow', 1)
         elif game_type == "AIvsAI":
             self.add_AI_player('red', 0, AI_behaviour[0])
             self.add_AI_player('yellow', 1, AI_behaviour[1])
@@ -116,37 +119,48 @@ class GameEngine:
 
     def run(self):
         while (self.player_array[0].pieces_in_pile() + self.player_array[1].pieces_in_pile()) != 0:
-            # ---------------- Player selection ----------------
+            # ---------------- Player selection ---------------- #
             player = self.player_array[self.player_turn]
             print("\n----- Turn ", self.turn_number, ": Player ", player.piece_color, " -----", sep="")
 
-            # ---------------- First stage: grow from rock ----------------
+            # ---------------- First stage: grow from rock ---------------- #
             if self.gameArea.is_rock_visible():
                 print("* Cover the rock *")
+                # Human
                 if player.player_type == "H":
-                    player.grow_from_rock(self.gameArea)
+                    player.new_grow_action()
+
+                # AI
                 elif player.player_type == "AI":
                     player.compute_all_legal_grows()
                     player.choose_action()
-                    player.apply_action()
 
-            # ---------------- Second stage: place the pawn ----------------
+                player.apply_action()
+
+            # ---------------- Second stage: place the pawn ---------------- #
             elif (not self.pawns_in_game()) and (not self.game_started):
                 print("* Place the pawn *")
+                # Human
                 if player.player_type == "H":
-                    player.place_pawn(self.gameArea)
+                    player.new_pawn_drop_action()
+
+                # AI
                 elif player.player_type == "AI":
                     player.compute_all_legal_pawn_drops()
                     player.choose_action()
-                    player.apply_action()
 
-            # ---------------- Third stage: grow the reef ----------------
+                player.apply_action()
+
+            # ---------------- Third stage: grow the reef ---------------- #
             else:
                 print("* Grow the reef *")
+                # Human
                 if player.player_type == "H":
-                    player.play(self.gameArea)
-                    if player.empty_hand and self.player_without_pieces:
-                        break
+                    if player.last_turn == "F":
+                        player.new_pawn_drop_action()
+                    elif player.last_turn != "F":
+                        player.new_action()
+                # AI
                 elif player.player_type == "AI":
                     if player.last_turn != "F":
                         player.compute_all_legal_grows()
@@ -154,9 +168,10 @@ class GameEngine:
                     elif player.last_turn == "F":
                         player.compute_all_legal_pawn_drops()
                     player.choose_action()
-                    player.apply_action()
 
-            # ----------------Check end game conditions ----------------
+                player.apply_action()
+
+            # ----------------Check end game conditions ---------------- #
             if player.empty_hand and not self.player_without_pieces:
                 self.player_without_pieces = True
                 print("   ªªª Player", player.piece_color, "has run out of pieces. ªªª   ")
@@ -171,11 +186,11 @@ class GameEngine:
                 if player.pieces_in_pile() == 0:
                     break
 
-            # ---------------- Update game state info ----------------
+            # ---------------- Update game state info ---------------- #
             self.gameArea.draw_coral(self.turn_number)
             self.turn_number += 1
 
-            # ---------------- Turn exchange ----------------
+            # ---------------- Turn exchange ---------------- #
             if not self.player_without_pieces:
                 self.change_turns()
             elif player.empty_hand:

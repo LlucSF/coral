@@ -16,16 +16,6 @@ class PlayerAI(Player):
         self.action_array = []
         self.turn_action = Action("")
 
-    def colors_in_hand(self):
-        """
-        Function to determine the available piece colors in hand
-        """
-        flags = []
-        for piece in self.piece_pile:
-            if not piece.used:
-                flags.append(piece.neutral)
-        return list(set(flags))
-
     def compute_all_legal_grows(self):
         """
         Function to compute all legal grow action in a specific game stage
@@ -37,37 +27,16 @@ class PlayerAI(Player):
                 if np.sum(np.abs(item)) > 2 or np.sum(np.abs(item)) == 0:
                     cbp_array.remove(item)
             del dummy
-            pawn_block_position = np.add(self.pawn.position, np.array([0, 0, -1]))
             for rotation_axis in range(3):
                 for rotation_quadrant in range(1, 5):
                     for cbp in cbp_array:
                         for neutral_color in self.colors_in_hand():
-                            if self.gameArea.is_rock_visible():
-                                three_rules = self.check_three_rules_from_rock(cbp, rotation_axis,
-                                                                               rotation_quadrant)
-                                block_positions = compute_blocks_positions(cbp, rotation_axis, rotation_quadrant)
-                                valid_position = self.gameArea.check_valid_position(block_positions,
-                                                                                    self.gameArea.rock_position,
-                                                                                    rotation_axis, neutral_color,
-                                                                                    10 * self.pawn.player_number)
-                                if three_rules and valid_position:
-                                    grow_action = Action("G", grow_central_block_position=cbp,
-                                                         grow_rotation_axis=rotation_axis,
-                                                         grow_rotation_quadrant=rotation_quadrant,
-                                                         grow_neutral_color=neutral_color)
-                                    self.action_array.append(grow_action)
-                            else:
-                                block_positions = compute_blocks_positions(cbp, rotation_axis, rotation_quadrant)
-                                valid_position = self.gameArea.check_valid_position(block_positions,
-                                                                                    pawn_block_position,
-                                                                                    rotation_axis, neutral_color,
-                                                                                    10 * self.pawn.player_number)
-                                if valid_position:
-                                    grow_action = Action("G", grow_central_block_position=cbp,
-                                                         grow_rotation_axis=rotation_axis,
-                                                         grow_rotation_quadrant=rotation_quadrant,
-                                                         grow_neutral_color=neutral_color)
-                                    self.action_array.append(grow_action)
+                            grow_action = Action("G", grow_central_block_position=cbp,
+                                                 grow_rotation_axis=rotation_axis,
+                                                 grow_rotation_quadrant=rotation_quadrant,
+                                                 grow_neutral_color=neutral_color)
+                            if self.validate_grow_action(grow_action):
+                                self.action_array.append(grow_action)
 
     def compute_all_legal_pawn_drops(self):
         """
@@ -108,7 +77,7 @@ class PlayerAI(Player):
         if self.behaviour == "random":
             action_index = int(random.randrange(len(self.action_array)))
             self.turn_action = self.action_array[action_index]
-            print(" Action", action_index + 1, ":")
+            print(" Action ", action_index + 1, ":", sep="")
             self.turn_action.print()
         if self.behaviour == "minmax":
             self.generate_game_tree()
@@ -124,57 +93,6 @@ class PlayerAI(Player):
 
     def choose_best_action(self):
         print(self.behaviour)
-
-    def apply_action(self):
-        """
-        Function to apply an action selected by the 'choose_action' function
-        """
-        # --------------------- Grow action --------------------- #
-        if self.turn_action.type == "G":
-            piece = self.select_piece_from_pile(self.turn_action.neutral_color)
-            positions = compute_blocks_positions(self.turn_action.central_block_position,
-                                                 self.turn_action.rotation_axis,
-                                                 self.turn_action.rotation_quadrant)
-            pawn_block_position = np.add(self.pawn.position, np.array([0, 0, -1]))
-            if check_growing_up(positions) and self.game_started:
-                self.pawn.remove(self.gameArea)
-                piece.place(positions, self.turn_action.rotation_axis,
-                            self.turn_action.rotation_quadrant, pawn_block_position)
-                self.gameArea.update_piece(piece)
-                self.pawn.place(pawn_block_position, self.gameArea)
-            else:
-                piece.place(positions, self.turn_action.rotation_axis,
-                            self.turn_action.rotation_quadrant, pawn_block_position)
-                self.gameArea.update_piece(piece)
-            if self.pieces_in_pile() == 0:
-                self.empty_hand = True
-
-        # --------------------- Pawn drop action --------------------- #
-        elif self.turn_action.type == 'PD':
-            self.pawn.place(self.turn_action.position, self.gameArea)
-
-        # --------------------- Slide action --------------------- #
-        elif self.turn_action.type == 'S':
-            self.pawn.remove(self.gameArea)
-            self.pawn.place(self.turn_action.position, self.gameArea)
-
-        # --------------------- Float action --------------------- #
-        elif self.turn_action.type == 'F':
-            self.pawn.remove(self.gameArea)
-
-        # --------------------- Checking for consecutive move actions --------------------- #
-        turn_move = (self.turn_action.type == "S" or self.turn_action.type == "F")
-        if turn_move and self.last_turn == "S":
-            print("Two consecutive move actions. Discarding a piece.")
-            self.discard_piece_from_pile()
-
-        # --------------------- Keeping record of this turn action and preparing next turn --------------------- #
-        if self.turn_action.type == "PD" and self.turn_action.float:
-            self.last_turn = "S"  # Trick to ensure discarding piece after consecutive moves
-        else:
-            self.last_turn = self.turn_action.type
-        self.action_array = []
-        self.turn_action = Action("")
 
     def select_piece_from_pile(self, neutral_flag):
         for piece in self.piece_pile:

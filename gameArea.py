@@ -95,8 +95,6 @@ class GameArea:
 
     # TODO: ensure blocks dont fall by implementing an iterative method which checks
     #  how many blocks a side of a piece is supporting respect the other sides
-    # TODO: split the valid position flags in independent functions
-
     def check_valid_position(self, blocks_positions, pawn_block_position, rotation_axis, piece_neutral,
                              pawn_number) -> bool:
         # First check: Empty space
